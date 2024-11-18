@@ -1,7 +1,7 @@
 # Documentação do Projeto BBox
 
 ## Visão Geral do Projeto
-O **BBox** é uma solução IoT desenvolvida durante um hackathon promovido pelo Banco do Brasil. O projeto consiste em uma **caixa inteligente** que utiliza **reconhecimento facial ou de objetos** para abertura, integrando tecnologias avançadas de visão computacional e comunicação IoT para garantir segurança e eficiência.
+O **BBox** é uma solução IoT desenvolvida durante um hackathon promovido pelo Banco do Brasil. O projeto consiste em uma **caixa inteligente** que utiliza **reconhecimento facial ou de objetos** para abertura, integrando tecnologias avançadas de visão computacional, comunicação IoT e microcontroladores para garantir segurança e eficiência.
 
 ---
 
@@ -24,7 +24,21 @@ O projeto é composto pelos seguintes componentes principais:
 
 ---
 
-### 2. **Página Web (HTML + CSS)**
+### 2. **Microcontrolador ESP32 com MicroPython**
+- **Finalidade**: Controlar o mecanismo físico da caixa.
+- **Descrição**:
+  - O ESP32 é programado em **MicroPython** para:
+    - Conectar-se ao **broker MQTT** do AWS IoT Core.
+    - Receber comandos de abertura ou fechamento da caixa.
+    - Realizar o acionamento físico com base nos comandos recebidos.
+- **Fluxo de Comunicação**:
+  1. O ESP32 se conecta à rede Wi-Fi e ao broker MQTT do AWS.
+  2. Subscrição aos tópicos relevantes para receber mensagens de controle.
+  3. Interpretação das mensagens e acionamento dos relés ou motores para abrir/fechar a caixa.
+
+---
+
+### 3. **Página Web (HTML + CSS)**
 - **Finalidade**: Interface simples para interação com o BBox, onde os usuários podem:
   - Capturar imagens para análise.
   - Verificar o status da caixa (aberta/fechada).
@@ -38,7 +52,7 @@ O projeto é composto pelos seguintes componentes principais:
 
 ---
 
-### 3. **N8N Workflow**
+### 4. **N8N Workflow**
 - **Descrição**: O **N8N** atua como um integrador que conecta o front-end da página com o MQTT Broker do AWS IoT Core.
 - **Pipeline**:
   1. **Recepção**: Recebe as requisições da página web via webhook.
@@ -47,7 +61,7 @@ O projeto é composto pelos seguintes componentes principais:
 
 ---
 
-### 4. **AWS IoT Core**
+### 5. **AWS IoT Core**
 - **Finalidade**: Middleware de comunicação MQTT para controle da caixa física.
 - **Fluxo**:
   - Recebe comandos via MQTT para abrir/fechar a caixa.
@@ -61,6 +75,8 @@ O projeto é composto pelos seguintes componentes principais:
   - Lambda
   - API Gateway
   - IoT Core
+- **Microcontroladores**:
+  - ESP32 com MicroPython
 - **Front-End**:
   - HTML
   - CSS
@@ -69,6 +85,7 @@ O projeto é composto pelos seguintes componentes principais:
   - N8N
 - **Linguagens de Programação**:
   - Python
+  - MicroPython
 
 ---
 
@@ -82,6 +99,8 @@ O projeto é composto pelos seguintes componentes principais:
    - Exibição do status da caixa.
 4. **Integração com AWS IoT Core**:
    - Controle remoto em tempo real.
+5. **Acionamento com ESP32**:
+   - Controle do hardware físico conectado à caixa.
 
 ---
 
@@ -100,13 +119,18 @@ O projeto é composto pelos seguintes componentes principais:
 - Implementar lógica para publicar mensagens no MQTT.
 - Configurar permissões no IAM para acessar o AWS IoT Core.
 
-### 3. Configurar o N8N
+### 3. Configurar o Microcontrolador ESP32
+- **Configurar Rede**: Conectar o ESP32 ao Wi-Fi local.
+- **Subscrição MQTT**: Configurar subscrição aos tópicos do AWS IoT Core.
+- **Acionamento**: Programar as ações físicas (abrir/fechar) com base nos comandos recebidos.
+
+### 4. Configurar o N8N
 - Criar um workflow que conecte:
   - Webhook para receber os dados do front-end.
   - Funções Lambda via HTTP Request.
   - AWS IoT Core via integração MQTT.
 
-### 4. Desenvolver a Página Web
+### 5. Desenvolver a Página Web
 - Criar uma página estática com campos para upload de imagens.
 - Adicionar scripts AJAX para comunicação com a API Gateway.
 
@@ -125,4 +149,10 @@ O projeto é composto pelos seguintes componentes principais:
 [Lambda: BBoxConsult] [Lambda: BBoxAction]
      |                    |
   [AWS Rekognition]      [AWS IoT Core]
+                             |
+                             v
+                          [ESP32]
+                             |
+                             v
+                        [Caixa Física]
 ```
