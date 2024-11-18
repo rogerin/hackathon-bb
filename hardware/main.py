@@ -6,7 +6,7 @@ import umqtt.simple as mqtt
 import urequests
 
 # URL para a requisição GET
-url = "https://robot.keycore.com.br/webhook/sendMain"  # Exemplo de URL
+url = "URL_SSEND_MAIL"  # Exemplo de URL
 
 # Função para enviar a requisição HTTP GET
 def http_get_request():
