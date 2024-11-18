@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBox - Controle de Caixa Inteligente</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            text-align: center;
+            padding: 20px;
+        }
+        header img {
+            width: 100px;
+            height: auto;
+        }
+        .button-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            max-width: 600px;
+            margin: 20px;
+            width: 100%;
+        }
+        .button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 10px;
+            padding: 15px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 120px;
+            cursor: pointer;
+        }
+        .button img {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 10px;
+        }
+        #cameraInput {
+            display: none;
+        }
+        #camera-label {
+            margin-top: 20px;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #result, #loading {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e0f7fa;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            text-align: center;
+            font-size: 16px;
+            display: none;
+        }
+        #loading {
+            font-weight: bold;
+            color: #007bff;
+        }
+        footer {
+            margin-top: auto;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+    <script>
+
+        function enviarEquipamentos(client = "bbox01", equipamentos) {
+            const payload = {
+                client: client,
+                equipamentos: equipamentos
+            };
+
+            fetch('https://sbbxb0xyq5.execute-api.us-east-2.amazonaws.com/prod/bbox', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => console.log('Envio bem-sucedido:', data))
+            .catch(error => console.error('Erro ao enviar os dados:', error));
+        }
+
+        // Função para verificar se pelo menos um dos termos está presente no array
+        function containsTargetWords(objectsArray) {
+            const targetWords = ["computer", "hardware", "electronics", "mouse", "modem", "adapter", "printer", "keyboard", "monitor"];
+            return objectsArray.some(object =>
+                targetWords.some(word => object.toLowerCase().includes(word.toLowerCase()))
+            );
+        }
+
+        function uploadImage(event) {
+            document.getElementById('loading').style.display = 'block';  // Mostrar o loading
+            sendCommand('processando');
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                
+                reader.onload = function() {
+                    // Reduzir a imagem usando um canvas
+                    const img = new Image();
+                    img.src = reader.result;
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Reduz a imagem para 50% do tamanho original
+                        const width = img.width * 0.5;
+                        const height = img.height * 0.5;
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Converte o canvas para base64 com qualidade reduzida
+                        const base64String = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+                        const payload = JSON.stringify({ image_base64: base64String });
+                        
+                        // Enviar a imagem em base64 para a URL do n8n
+                        fetch('https://sbbxb0xyq5.execute-api.us-east-2.amazonaws.com/prod/validateObject', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: payload
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById('loading').style.display = 'none';  // Ocultar o loading
+                            sendCommand('fim');
+                            const responseBody = JSON.parse(data.body);
+                            displayObjects(responseBody.Objetos_detectados);
+
+                            enviarEquipamentos(responseBody.Objetos_detectados)
+
+                            if (containsTargetWords(responseBody.Objetos_detectados)) {
+                                console.log("Itens encontrados incluem um dispositivo eletrônico listado.");
+                                sendCommand('abrir');
+                                setTimeout(() => {
+                                    sendCommand('fechar');
+                                }, 5000);
+                            } else {
+                                console.log("Nenhum dispositivo eletrônico listado foi encontrado.");
+                            }
+                        })
+                        .catch(error => {
+                            document.getElementById('loading').style.display = 'none';  // Ocultar o loading
+                            console.error('Erro ao fazer upload da imagem:', error);
+                        });
+                    };
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Função para exibir os objetos detectados
+        function displayObjects(objects) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = "<strong>Objetos Detectados:</strong><br>";
+            objects.forEach(object => {
+                resultDiv.innerHTML += `- ${object}<br>`;
+            });
+            resultDiv.style.display = 'block';
+        }
+
+
+        function sendCommand(command) {
+            fetch('https://robot.keycore.com.br/webhook/trasmitter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command })
+            })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch(error => console.error('Erro:', error));
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <img src="https://img.icons8.com/ios-filled/100/000000/door.png" alt="Logomarca BBox">
+        <h1>BBox - Descarte Inteligente</h1>
+    </header>
+
+    <div class="button-container">
+        <div class="button" onclick="sendCommand('abrir')">
+            <img src="https://img.icons8.com/fluency/48/000000/open-box.png" alt="Abrir Caixa">
+            <p>Abrir Caixa</p>
+        </div>
+        <div class="button" onclick="sendCommand('fechar')">
+            <img src="https://img.icons8.com/fluency/48/000000/box.png" alt="Fechar Caixa">
+            <p>Fechar Caixa</p>
+        </div>
+        <div class="button" onclick="sendCommand('processando')">
+            <img src="https://img.icons8.com/fluency/48/000000/settings.png" alt="Processando">
+            <p>Processando</p>
+        </div>
+        <div class="button" onclick="sendCommand('fim')">
+            <img src="https://img.icons8.com/fluency/48/000000/checked.png" alt="Finalizar">
+            <p>Finalizar</p>
+        </div>
+    </div>
+
+    <!-- Botão para abrir câmera nativa -->
+    <label for="cameraInput" id="camera-label">Capturar Imagem</label>
+    <input type="file" accept="image/*" capture="environment" id="cameraInput" onchange="uploadImage(event)">
+
+    <!-- Área de carregamento -->
+    <div id="loading">Processando imagem, aguarde...</div>
+
+    <!-- Área para exibir os objetos detectados -->
+    <div id="result"></div>
+
+    <footer>
+        Todos os direitos para BBox
+    </footer>
+</body>
+</html>
